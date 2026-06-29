@@ -1,0 +1,21 @@
+{
+  "available_count": 2,
+  "credits": [
+    {
+      "id": "RateLimitResetCredit_redacted",
+      "reset_type": "codex_rate_limits",
+      "status": "available",
+      "title": "One free rate limit reset",
+      "granted_at": "2026-06-12T01:33:14Z",
+      "expires_at": "2026-07-12T01:33:14Z"
+    },
+    {
+      "id": "RateLimitResetCredit_redacted",
+      "reset_type": "codex_rate_limits",
+      "status": "available",
+      "title": "Tibo reset on the house",
+      "granted_at": "2026-06-27T00:39:48Z",
+      "expires_at": "2026-07-27T00:39:48Z"
+    }
+  ]
+}

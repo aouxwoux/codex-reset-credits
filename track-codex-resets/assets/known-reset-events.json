@@ -1,0 +1,79 @@
+{
+  "updated_at": "2026-06-28",
+  "timezone": "UTC",
+  "expiry_days": 30,
+  "events": [
+    {
+      "label": "OpenAI saved-reset launch credit",
+      "source": "https://x.com/OpenAI/status/2065225362544726371",
+      "kind": "launch_banked",
+      "bankable": true,
+      "quantity": 1,
+      "confidence": "high",
+      "basis": "public banked-reset launch timestamp + expiry window",
+      "note": "OpenAI announced that Go, Plus, Pro, and Business users start with one free saved reset."
+    },
+    {
+      "label": "Tibo reset banking policy note",
+      "source": "https://x.com/thsottiaux/status/2065468501750649006",
+      "kind": "policy",
+      "bankable": false,
+      "quantity": 0,
+      "confidence": "high",
+      "basis": "policy signal, not a reset credit",
+      "note": "This post describes future reset banking behavior; it is useful provenance but should not be counted as a reset credit."
+    },
+    {
+      "label": "Tibo June 16 incoming reset",
+      "source": "https://x.com/thsottiaux/status/2066956441173323943",
+      "kind": "immediate",
+      "bankable": false,
+      "quantity": 1,
+      "grant_delay_hours": 24,
+      "confidence": "low",
+      "basis": "announcement timestamp + possible 24 hour rollout + expiry window",
+      "note": "Tibo said to give the team 24 hours to reset Codex rate limits across all plans. Public reports indicate this may have applied immediately rather than adding a banked credit."
+    },
+    {
+      "label": "Tibo sneaky double reset bank credit",
+      "source": "https://x.com/thsottiaux/status/2067399435009622521",
+      "kind": "banked",
+      "bankable": true,
+      "quantity": 1,
+      "confidence": "medium",
+      "basis": "announcement timestamp + expiry window",
+      "note": "Tibo said users got a full reset plus one reset into the reset bank."
+    },
+    {
+      "label": "Tibo June 26 reset on the house",
+      "source": "https://x.com/thsottiaux/status/2070653282440405046",
+      "kind": "likely_banked",
+      "bankable": true,
+      "quantity": 1,
+      "grant_delay_hours": 4,
+      "confidence": "medium",
+      "basis": "announcement timestamp + possible few-hour rollout + expiry window",
+      "note": "Tibo said the reset should show in accounts in the next few hours. Use Codex UI expiry if it becomes available."
+    },
+    {
+      "label": "Tibo June 4 paid-plan usage reset",
+      "source": "https://x.com/thsottiaux/status/2062329981548802523",
+      "kind": "immediate",
+      "bankable": false,
+      "quantity": 1,
+      "confidence": "high",
+      "basis": "announcement timestamp + expiry window",
+      "note": "Historical immediate usage reset across paid plans; not expected to remain as a banked credit."
+    },
+    {
+      "label": "Tibo March 3 rate-limit reset",
+      "source": "https://x.com/thsottiaux/status/2028649088594436225",
+      "kind": "immediate",
+      "bankable": false,
+      "quantity": 1,
+      "confidence": "medium",
+      "basis": "announcement timestamp + expiry window",
+      "note": "Historical immediate rate-limit reset; useful for reset history, not current bank prediction."
+    }
+  ]
+}

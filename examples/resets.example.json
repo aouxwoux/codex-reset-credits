@@ -1,0 +1,15 @@
+{
+  "timezone": "Asia/Kolkata",
+  "expiry_days": 30,
+  "resets": [
+    {
+      "label": "Tibo reset announcement",
+      "source": "https://x.com/thsottiaux/status/2070653282440405046",
+      "quantity": 1,
+      "grant_delay_hours": 4,
+      "kind": "likely_banked",
+      "confidence": "medium",
+      "note": "Grant time is estimated from the X status ID. Replace with Codex UI expires_at if available."
+    }
+  ]
+}
