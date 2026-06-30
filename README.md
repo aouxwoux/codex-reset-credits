@@ -42,12 +42,41 @@ Use `--target` if your Codex skills live somewhere else:
 python tools/install_skill.py --target /path/to/skills
 ```
 
+## Ship a skill-only release
+
+For GitHub releases, build a zip that contains only the installable skill folder:
+
+```bash
+python tools/validate_repo.py
+python tools/package_skill.py
+```
+
+This writes:
+
+```text
+dist/track-codex-resets-skill.zip
+```
+
+Upload that zip as the release artifact. Users can extract `track-codex-resets/` into `~/.codex/skills/track-codex-resets`.
+
 ## Run directly
 
 Exact account-backed expiry rows:
 
 ```bash
 python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+```
+
+Compact expiry-only view:
+
+```bash
+python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown --view compact --hide-details
+```
+
+Full provenance view, limited to the next expiring credit:
+
+```bash
+python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown --view full --limit 1
 ```
 
 Sanitized local ledger output:
@@ -76,6 +105,8 @@ python track-codex-resets/scripts/reset_expiry.py --timezone Asia/Kolkata https:
 - Computes expiry tables from `expires_at`, `grant_at + 30 days`, X/Twitter status IDs, or a known public reset-event catalog.
 - Displays local and UTC expiry times.
 - Emits terminal, Markdown, JSON, or sanitized ledger output.
+- Keeps provenance visible so exact account data never looks like public-event estimation.
+- Ships as a skill-only artifact; no plugin, GUI, or hosted service is required.
 
 ## Privacy model
 
@@ -102,6 +133,16 @@ Generated local snapshots such as `account-resets.local.json` are ignored by git
 --format ledger     sanitized input file for reset_expiry.py
 ```
 
+Markdown controls:
+
+```text
+--view compact      summary + upcoming expiry list
+--view table        summary + expiry list + readable table (default)
+--view full         summary + expiry list + full provenance table
+--limit N           show only the first N credits by expiry
+--hide-details      omit per-credit provenance details and notes
+```
+
 ## Public-event inference
 
 If exact account data is unavailable, `--bank-count N` maps your visible reset-bank count to the latest active likely bankable events in `track-codex-resets/assets/known-reset-events.json`.
@@ -113,6 +154,7 @@ This is useful, but it is not account truth. Referral-earned resets and staged r
 ```bash
 python tools/validate_repo.py
 python /path/to/skill-creator/scripts/quick_validate.py track-codex-resets
+python tools/package_skill.py --dry-run
 ```
 
 Adjust the final validator path for your machine.
@@ -120,8 +162,6 @@ Adjust the final validator path for your machine.
 ## Roadmap
 
 - Calendar export with reminders before expiry.
-- Tiny desktop/menu bar view.
-- Codex app GUI panel.
 - Community-maintained reset-event catalog.
 
 ## Disclaimer

@@ -1,6 +1,6 @@
 ---
 name: track-codex-resets
-description: Build and maintain clear, timezone-aware Codex reset-credit expiry ledgers and predictions. Use when a user asks to fetch exact account reset-credit expiries, track Tibo/Codex reset credits, infer expiries from a visible reset-bank count, map reset credits to Tibo/OpenAI reset announcements, inspect reset-bank expiration, handle 30-day reset windows, parse X/Twitter reset-announcement URLs, render countdown tables, emit Markdown/JSON reset dashboards, or prepare calendar and Codex app GUI reminder features.
+description: Build and maintain clear, timezone-aware Codex reset-credit expiry ledgers and predictions. Use when a user asks to fetch exact account reset-credit expiries, track Tibo/Codex reset credits, infer expiries from a visible reset-bank count, map reset credits to Tibo/OpenAI reset announcements, inspect reset-bank expiration, handle 30-day reset windows, parse X/Twitter reset-announcement URLs, render countdown tables, or emit Markdown/JSON reset ledgers for downstream export tooling.
 ---
 
 # Codex Reset Credits
@@ -52,6 +52,7 @@ python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata
 
 Use `--format json` when another tool, calendar exporter, website, or app extension will consume the result.
 Use `--format ledger` with `fetch_account_resets.py` when saving sanitized account rows for later rendering.
+Use `--view compact`, `--view table`, or `--view full` with Markdown output to control how much expiry detail is shown. Use `--limit N` to show only the next N expiring credits and `--hide-details` to suppress provenance notes.
 
 ## Input Rules
 
@@ -67,6 +68,7 @@ Use `--format ledger` with `fetch_account_resets.py` when saving sanitized accou
 ## Output Standards
 
 - Always include local time and UTC time for the next expiry.
+- In Markdown output, include an `Upcoming Expiries` list so every shown credit's expiry date is visible without horizontal scrolling.
 - Sort by expiry time so the riskiest reset is first.
 - Use status buckets: `expired`, `today`, `critical`, `soon`, `watch`, and `ok`.
 - Make uncertainty visible. For example, "estimated from announcement URL" is different from "provided by Codex UI."
@@ -85,6 +87,7 @@ After edits, run:
 ```bash
 python scripts/reset_expiry.py --timezone UTC https://x.com/thsottiaux/status/2070653282440405046
 python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata --format markdown
+python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata --format markdown --view compact --limit 2
 python scripts/fetch_account_resets.py --input-response ../examples/account-resets.sample.json --timezone UTC --format markdown
 python /path/to/skill-creator/scripts/quick_validate.py .
 ```

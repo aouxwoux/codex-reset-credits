@@ -71,9 +71,12 @@ class ResetExpiryTests(unittest.TestCase):
         )
 
         self.assertIn("# Codex Reset Credits", output)
-        self.assertIn("Next expiring credit", output)
+        self.assertIn("## Next To Expire", output)
         self.assertIn("Full reset (available)", output)
         self.assertIn("Available reset credits: 1", output)
+        self.assertIn("| # | Status | Qty | Expires Local | Expires UTC | Time Left | Confidence |", output)
+        self.assertIn("Rule: `expires_at = grant_at + 30 days`", output)
+        self.assertNotIn("| Status | Credit | Qty | Kind | Granted | Expires |", output)
 
     def test_json_renderer_is_machine_readable(self) -> None:
         reset = reset_expiry.reset_from_mapping(
@@ -93,6 +96,61 @@ class ResetExpiryTests(unittest.TestCase):
 
         self.assertEqual(payload["resets"][0]["account_status"], "available")
         self.assertEqual(payload["resets"][0]["confidence"], "exact")
+
+    def test_markdown_views_and_limit_give_user_control(self) -> None:
+        resets = [
+            reset_expiry.reset_from_mapping(
+                {
+                    "label": "First reset",
+                    "grant_at": "2026-06-12T03:38:11Z",
+                    "expires_at": "2026-07-12T03:38:11Z",
+                    "credit_status": "available",
+                    "confidence": "exact",
+                },
+                30,
+                timezone.utc,
+            ),
+            reset_expiry.reset_from_mapping(
+                {
+                    "label": "Second reset",
+                    "grant_at": "2026-06-18T00:17:14Z",
+                    "expires_at": "2026-07-18T00:17:14Z",
+                    "credit_status": "available",
+                    "confidence": "exact",
+                },
+                30,
+                timezone.utc,
+            ),
+        ]
+
+        compact = reset_expiry.render_markdown(
+            resets,
+            datetime(2026, 6, 28, tzinfo=timezone.utc),
+            timezone.utc,
+            30,
+            ["Available reset credits: 2"],
+            view="compact",
+            show_details=False,
+        )
+        self.assertIn("## Upcoming Expiries", compact)
+        self.assertIn("First reset (available)", compact)
+        self.assertIn("Second reset (available)", compact)
+        self.assertNotIn("## Credits Table", compact)
+        self.assertNotIn("## Details", compact)
+
+        full_limited = reset_expiry.render_markdown(
+            resets,
+            datetime(2026, 6, 28, tzinfo=timezone.utc),
+            timezone.utc,
+            30,
+            ["Available reset credits: 2"],
+            view="full",
+            limit=1,
+        )
+        self.assertIn("## Full Ledger", full_limited)
+        self.assertIn("Showing first 1 of 2 credits by expiry.", full_limited)
+        self.assertIn("First reset (available)", full_limited)
+        self.assertNotIn("Second reset (available)", full_limited)
 
 
 if __name__ == "__main__":

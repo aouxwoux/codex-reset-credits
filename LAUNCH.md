@@ -10,16 +10,25 @@ Codex Reset Credits: a drop-in Codex skill that shows exact expiry times for ban
 
 Know exactly when your Codex reset credits expire.
 
-## X Post
+## Reference X Post
 
-I built a tiny Codex skill for everyone hoarding reset credits:
+Made an unofficial Codex skill for reset credits.
 
-- shows exact granted/expires timestamps when local Codex auth can read them
-- prints only sanitized fields, no tokens/raw payloads
-- falls back to Tibo/OpenAI reset-event inference when exact account data is unavailable
-- outputs Markdown/JSON for calendar/app ideas
+It shows when banked resets expire, uses local Codex auth only for sanitized expiry rows, and falls back to Tibo/OpenAI reset-event inference when exact data isn't available.
 
-Repo: <link>
+MIT: https://github.com/aouxwoux/codex-reset-credits
+
+## Longer X Post
+
+I built an unofficial Codex skill for tracking reset credits:
+
+- exact expiry rows when local Codex auth can read them
+- no token printing, raw payloads, IDs, or cookies
+- Tibo/OpenAI event inference as a fallback
+- Markdown/JSON output
+- skill-only OSS release
+
+https://github.com/aouxwoux/codex-reset-credits
 
 ## Short X Reply
 
@@ -27,7 +36,7 @@ If your Codex UI says you have reset credits but not when they expire, this show
 
 No token printing, no raw payloads, read-only fetch, Markdown/JSON output.
 
-Repo: <link>
+https://github.com/aouxwoux/codex-reset-credits
 
 ## Demo Command
 

@@ -52,6 +52,9 @@ class ResetError(ValueError):
     pass
 
 
+MARKDOWN_VIEWS = ("compact", "table", "full")
+
+
 def main() -> int:
     known_events_default = Path(__file__).resolve().parents[1] / "assets" / "known-reset-events.json"
     parser = argparse.ArgumentParser(
@@ -71,6 +74,14 @@ def main() -> int:
     parser.add_argument("--include-immediate", action="store_true", help="Include immediate/non-banked reset events from the catalog.")
     parser.add_argument("--now", help="Override current time with an ISO timestamp for testing.")
     parser.add_argument("--format", choices=("terminal", "markdown", "json"), default="terminal")
+    parser.add_argument(
+        "--view",
+        choices=MARKDOWN_VIEWS,
+        default="table",
+        help="Markdown view: compact expiry list, readable table, or full provenance table.",
+    )
+    parser.add_argument("--limit", type=int, help="Show only the first N credits by expiry in human-readable output.")
+    parser.add_argument("--hide-details", action="store_true", help="Hide per-credit provenance details in Markdown output.")
     args = parser.parse_args()
 
     try:
@@ -78,6 +89,8 @@ def main() -> int:
         tz_name = args.timezone or config.get("timezone") or "local"
         display_tz = parse_timezone(tz_name)
         now = parse_datetime(args.now, display_tz).astimezone(timezone.utc) if args.now else datetime.now(timezone.utc)
+        if args.limit is not None and args.limit < 1:
+            raise ResetError("--limit must be at least 1.")
         expiry_days = float(args.expiry_days if args.expiry_days is not None else config.get("expiry_days", 30.0))
         resets = load_resets(config, args.resets, expiry_days, display_tz)
         messages: list[str] = []
@@ -112,9 +125,20 @@ def main() -> int:
     if args.format == "json":
         print(render_json(resets, now, display_tz, expiry_days, messages))
     elif args.format == "markdown":
-        print(render_markdown(resets, now, display_tz, expiry_days, messages))
+        print(
+            render_markdown(
+                resets,
+                now,
+                display_tz,
+                expiry_days,
+                messages,
+                view=args.view,
+                limit=args.limit,
+                show_details=not args.hide_details,
+            )
+        )
     else:
-        print(render_terminal(resets, now, display_tz, expiry_days, messages))
+        print(render_terminal(resets, now, display_tz, expiry_days, messages, limit=args.limit))
     return 0
 
 
@@ -325,8 +349,10 @@ def render_terminal(
     display_tz: tzinfo,
     expiry_days: float,
     messages: list[str] | None = None,
+    limit: int | None = None,
 ) -> str:
     next_reset = next((reset for reset in resets if reset.expires_at >= now), resets[0])
+    visible_resets = limited_resets(resets, limit)
     lines = [
         "Codex reset credits",
         f"Timezone: {timezone_label(display_tz)}",
@@ -349,7 +375,7 @@ def render_terminal(
         headers.append("Credit status")
     headers.extend(["Credit", "Qty", "Kind", "Expires", "Time left", "Confidence", "Basis", "Source"])
     rows = []
-    for reset in resets:
+    for reset in visible_resets:
         row = [status_for(reset, now)]
         if include_credit_status:
             row.append(reset.account_status)
@@ -367,7 +393,9 @@ def render_terminal(
         )
         rows.append(row)
     lines.append(render_table(headers, rows))
-    notes = [f"{reset.label}: {reset.note}" for reset in resets if reset.note]
+    if limit_note := format_limit_note(resets, visible_resets):
+        lines.extend(["", limit_note])
+    notes = [f"{reset.label}: {reset.note}" for reset in visible_resets if reset.note]
     if notes:
         lines.extend(["", "Notes", *[f"  {note}" for note in notes]])
     return "\n".join(lines)
@@ -379,37 +407,113 @@ def render_markdown(
     display_tz: tzinfo,
     expiry_days: float,
     messages: list[str] | None = None,
+    view: str = "table",
+    limit: int | None = None,
+    show_details: bool = True,
 ) -> str:
+    if view not in MARKDOWN_VIEWS:
+        raise ResetError(f"Unknown Markdown view '{view}'. Choose: {', '.join(MARKDOWN_VIEWS)}.")
     next_reset = next((reset for reset in resets if reset.expires_at >= now), resets[0])
+    visible_resets = limited_resets(resets, limit)
+    available_message, run_notes = split_available_message(messages or [])
     lines = [
         "# Codex Reset Credits",
         "",
-        f"- Timezone: `{timezone_label(display_tz)}`",
-        f"- Now: `{format_dt(now, display_tz)}`",
-        f"- Default rule: `expires_at = grant_at + {format_days(expiry_days)}` unless `expires_at` is provided",
-        f"- Next expiring credit: **{escape_md(next_reset.label)}** at `{format_dt(next_reset.expires_at, display_tz)}` ({format_duration(next_reset.expires_at - now)})",
+        f"**{escape_md(available_message or tracked_credits_message(resets))}**",
+        f"Checked: `{format_dt_short(now, display_tz)}` in `{timezone_label(display_tz)}`.",
+        "",
+        "## Next To Expire",
+        "",
+        f"**{escape_md(next_reset.label_with_status())}**",
+        f"- Expires: **{escape_md(format_window_short(next_reset.expires_at, next_reset.expires_at_latest, display_tz))}**",
+        f"- UTC: `{format_window_short(next_reset.expires_at, next_reset.expires_at_latest, timezone.utc)}`",
+        f"- Time left: **{format_duration_window(next_reset, now)}**",
+        f"- Confidence: `{escape_md(humanize(next_reset.confidence))}`",
+        f"- Source: `{escape_md(short_source(next_reset.source) or 'manual input')}`",
+        "",
+        "## Upcoming Expiries",
         "",
     ]
-    if messages:
-        lines.extend(["## Run Notes", "", *[f"- {escape_md(message)}" for message in messages], ""])
+    for index, reset in enumerate(visible_resets, start=1):
+        lines.append(
+            f"{index}. **{escape_md(format_window_short(reset.expires_at, reset.expires_at_latest, display_tz))}** "
+            f"({format_duration_window(reset, now)}) - "
+            f"{escape_md(reset.label_with_status())}; UTC `{format_window_short(reset.expires_at, reset.expires_at_latest, timezone.utc)}`."
+        )
+    if limit_note := format_limit_note(resets, visible_resets):
+        lines.extend(["", f"_{escape_md(limit_note)}_"])
+
+    if view == "compact":
+        append_markdown_footer(lines, run_notes, visible_resets, expiry_days, include_notes=show_details)
+        return "\n".join(lines)
+
+    if view == "full":
+        lines.extend(["", "## Full Ledger", ""])
+        append_full_markdown_table(lines, visible_resets, now, display_tz)
+    else:
+        lines.extend([
+            "",
+            "## Credits Table",
+            "",
+            "| # | Status | Qty | Expires Local | Expires UTC | Time Left | Confidence |",
+            "| ---: | --- | ---: | --- | --- | --- | --- |",
+        ])
+        for index, reset in enumerate(visible_resets, start=1):
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        str(index),
+                        status_for(reset, now),
+                        str(reset.quantity),
+                        f"**{escape_md(format_window_short(reset.expires_at, reset.expires_at_latest, display_tz))}**",
+                        escape_md(format_window_short(reset.expires_at, reset.expires_at_latest, timezone.utc)),
+                        format_duration_window(reset, now),
+                        escape_md(humanize(reset.confidence)),
+                    ]
+                )
+                + " |"
+            )
+
+    if show_details:
+        lines.extend(["", "## Details", ""])
+        for index, reset in enumerate(visible_resets, start=1):
+            lines.append(
+                f"{index}. **{escape_md(reset.label_with_status())}**: "
+                f"granted `{format_window_short(reset.grant_at, reset.grant_at_latest, display_tz) if reset.grant_at else 'unknown'}`; "
+                f"{escape_md(reset.basis)}; "
+                f"source `{escape_md(short_source(reset.source) or 'manual input')}`."
+            )
+
+    append_markdown_footer(lines, run_notes, visible_resets, expiry_days, include_notes=show_details)
+    return "\n".join(lines)
+
+
+def append_full_markdown_table(
+    lines: list[str],
+    resets: list[ResetCredit],
+    now: datetime,
+    display_tz: tzinfo,
+) -> None:
     lines.extend(
         [
-            "| Status | Credit | Qty | Kind | Granted | Expires | Expires UTC | Time left | Confidence | Basis | Source |",
-            "| --- | --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| # | Status | Credit | Qty | Kind | Granted | Expires Local | Expires UTC | Time Left | Confidence | Basis | Source |",
+            "| ---: | --- | --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
-    for reset in resets:
+    for index, reset in enumerate(resets, start=1):
         lines.append(
             "| "
             + " | ".join(
                 [
+                    str(index),
                     status_for(reset, now),
                     escape_md(reset.label_with_status()),
                     str(reset.quantity),
                     escape_md(humanize(reset.kind)),
-                    format_window(reset.grant_at, reset.grant_at_latest, display_tz) if reset.grant_at else "",
-                    format_window(reset.expires_at, reset.expires_at_latest, display_tz),
-                    format_window(reset.expires_at, reset.expires_at_latest, timezone.utc),
+                    escape_md(format_window_short(reset.grant_at, reset.grant_at_latest, display_tz) if reset.grant_at else ""),
+                    f"**{escape_md(format_window_short(reset.expires_at, reset.expires_at_latest, display_tz))}**",
+                    escape_md(format_window_short(reset.expires_at, reset.expires_at_latest, timezone.utc)),
                     format_duration_window(reset, now),
                     escape_md(humanize(reset.confidence)),
                     escape_md(reset.basis),
@@ -418,10 +522,39 @@ def render_markdown(
             )
             + " |"
         )
-    notes = [f"- **{escape_md(reset.label)}:** {escape_md(reset.note)}" for reset in resets if reset.note]
+
+
+def append_markdown_footer(
+    lines: list[str],
+    run_notes: list[str],
+    resets: list[ResetCredit],
+    expiry_days: float,
+    include_notes: bool,
+) -> None:
+    if run_notes:
+        lines.extend(["", "## Run Notes", "", *[f"- {escape_md(message)}" for message in run_notes]])
+    notes = unique_notes(resets) if include_notes else []
     if notes:
         lines.extend(["", "## Notes", "", *notes])
-    return "\n".join(lines)
+    lines.extend(
+        [
+            "",
+            "Rule: `expires_at = grant_at + "
+            + format_days(expiry_days)
+            + "` only when an exact `expires_at` is unavailable.",
+        ]
+    )
+
+
+def render_legacy_markdown(
+    resets: list[ResetCredit],
+    now: datetime,
+    display_tz: tzinfo,
+    expiry_days: float,
+    messages: list[str] | None = None,
+) -> str:
+    """Deprecated compatibility wrapper for the pre-view Markdown table."""
+    return render_markdown(resets, now, display_tz, expiry_days, messages, view="full")
 
 
 def render_json(
@@ -511,6 +644,14 @@ def format_window(earliest: datetime | None, latest: datetime | None, tz: tzinfo
     return f"{format_dt(earliest, tz)} -> {format_dt(latest, tz)}"
 
 
+def format_window_short(earliest: datetime | None, latest: datetime | None, tz: tzinfo) -> str:
+    if earliest is None:
+        return ""
+    if latest is None:
+        return format_dt_short(earliest, tz)
+    return f"{format_dt_short(earliest, tz)} to {format_dt_short(latest, tz)}"
+
+
 def format_duration_window(reset: ResetCredit, now: datetime) -> str:
     earliest = format_duration(reset.expires_at - now)
     if reset.expires_at_latest is None:
@@ -547,6 +688,16 @@ def format_dt(value: datetime | None, tz: tzinfo) -> str:
     pretty_offset = f"{offset[:3]}:{offset[3:]}" if offset else "+00:00"
     name = local.tzname() or "UTC"
     return f"{local:%Y-%m-%d %H:%M:%S} {name} (UTC{pretty_offset})"
+
+
+def format_dt_short(value: datetime | None, tz: tzinfo) -> str:
+    if value is None:
+        return ""
+    local = value.astimezone(tz)
+    name = local.tzname() or "UTC"
+    if local.second or local.microsecond:
+        return f"{local:%b %d, %Y %H:%M:%S} {name}"
+    return f"{local:%b %d, %Y %H:%M} {name}"
 
 
 def timezone_label(tz: tzinfo) -> str:
@@ -594,6 +745,48 @@ def format_days(value: float) -> str:
 
 def plural(quantity: int) -> str:
     return "" if quantity == 1 else "s"
+
+
+def limited_resets(resets: list[ResetCredit], limit: int | None) -> list[ResetCredit]:
+    if limit is None:
+        return resets
+    return resets[:limit]
+
+
+def format_limit_note(resets: list[ResetCredit], visible_resets: list[ResetCredit]) -> str:
+    if len(visible_resets) >= len(resets):
+        return ""
+    return f"Showing first {len(visible_resets)} of {len(resets)} credits by expiry."
+
+
+def tracked_credits_message(resets: list[ResetCredit]) -> str:
+    quantity = sum(reset.quantity for reset in resets)
+    return f"Tracked reset credits: {quantity}"
+
+
+def split_available_message(messages: list[str]) -> tuple[str | None, list[str]]:
+    available_message = None
+    run_notes: list[str] = []
+    for message in messages:
+        if message.startswith("Available reset credits:") and available_message is None:
+            available_message = message
+        else:
+            run_notes.append(message)
+    return available_message, run_notes
+
+
+def unique_notes(resets: list[ResetCredit]) -> list[str]:
+    seen: set[str] = set()
+    notes: list[str] = []
+    for reset in resets:
+        if not reset.note:
+            continue
+        note = f"- **{escape_md(reset.label)}:** {escape_md(reset.note)}"
+        if note in seen:
+            continue
+        seen.add(note)
+        notes.append(note)
+    return notes
 
 
 if __name__ == "__main__":

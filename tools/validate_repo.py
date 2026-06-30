@@ -43,9 +43,11 @@ def check_required_files() -> None:
         ROOT / "examples" / "account-resets.sample.json",
         ROOT / "examples" / "resets.example.json",
         ROOT / "tools" / "install_skill.py",
+        ROOT / "tools" / "package_skill.py",
         ROOT / "tests" / "test_reset_expiry.py",
         ROOT / "tests" / "test_fetch_account_resets.py",
         ROOT / "tests" / "test_installer.py",
+        ROOT / "tests" / "test_package_skill.py",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -94,6 +96,7 @@ def check_python_compile() -> None:
             str(SKILL / "scripts" / "reset_expiry.py"),
             str(SKILL / "scripts" / "fetch_account_resets.py"),
             str(ROOT / "tools" / "install_skill.py"),
+            str(ROOT / "tools" / "package_skill.py"),
             str(ROOT / "tools" / "validate_repo.py"),
         ]
     )
@@ -116,6 +119,23 @@ def check_sample_commands() -> None:
     run(
         [
             sys.executable,
+            str(SKILL / "scripts" / "fetch_account_resets.py"),
+            "--input-response",
+            str(ROOT / "examples" / "account-resets.sample.json"),
+            "--timezone",
+            "UTC",
+            "--format",
+            "markdown",
+            "--view",
+            "compact",
+            "--limit",
+            "1",
+            "--hide-details",
+        ]
+    )
+    run(
+        [
+            sys.executable,
             str(SKILL / "scripts" / "reset_expiry.py"),
             "--bank-count",
             "3",
@@ -133,6 +153,15 @@ def check_sample_commands() -> None:
             str(ROOT / "tools" / "install_skill.py"),
             "--target",
             str(ROOT / ".tmp-install"),
+            "--dry-run",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(ROOT / "tools" / "package_skill.py"),
+            "--output",
+            str(ROOT / ".tmp-install" / "track-codex-resets-skill.zip"),
             "--dry-run",
         ]
     )

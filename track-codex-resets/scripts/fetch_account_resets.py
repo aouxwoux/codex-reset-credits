@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from reset_expiry import (
+    MARKDOWN_VIEWS,
     ResetCredit,
     ResetError,
     format_days,
@@ -65,10 +66,20 @@ def main() -> int:
     )
     parser.add_argument("--available-only", action="store_true", help="Only show credits with status=available.")
     parser.add_argument("--dry-run", action="store_true", help="Validate auth shape and print no token values or network data.")
+    parser.add_argument(
+        "--view",
+        choices=MARKDOWN_VIEWS,
+        default="table",
+        help="Markdown view: compact expiry list, readable table, or full provenance table.",
+    )
+    parser.add_argument("--limit", type=int, help="Show only the first N credits by expiry in human-readable output.")
+    parser.add_argument("--hide-details", action="store_true", help="Hide per-credit provenance details in Markdown output.")
     args = parser.parse_args()
 
     try:
         display_tz = parse_timezone(args.timezone)
+        if args.limit is not None and args.limit < 1:
+            raise ResetError("--limit must be at least 1.")
         messages: list[str] = []
         if args.input_response:
             payload = read_json(args.input_response)
@@ -98,9 +109,20 @@ def main() -> int:
     elif args.format == "json":
         print(render_json(resets, now, display_tz, expiry_days, messages))
     elif args.format == "markdown":
-        print(render_markdown(resets, now, display_tz, expiry_days, messages))
+        print(
+            render_markdown(
+                resets,
+                now,
+                display_tz,
+                expiry_days,
+                messages,
+                view=args.view,
+                limit=args.limit,
+                show_details=not args.hide_details,
+            )
+        )
     else:
-        print(render_terminal(resets, now, display_tz, expiry_days, messages))
+        print(render_terminal(resets, now, display_tz, expiry_days, messages, limit=args.limit))
     return 0
 
 

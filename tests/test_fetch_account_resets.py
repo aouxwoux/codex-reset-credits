@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -85,6 +86,34 @@ class FetchAccountResetsTests(unittest.TestCase):
             auth = fetch_account_resets.read_auth(auth_path)
 
         self.assertEqual(auth, {"access_token": "access-secret", "account_id": "account-secret"})
+
+    def test_cli_accepts_markdown_view_controls(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS / "fetch_account_resets.py"),
+                "--input-response",
+                str(ROOT / "examples" / "account-resets.sample.json"),
+                "--timezone",
+                "UTC",
+                "--format",
+                "markdown",
+                "--view",
+                "compact",
+                "--limit",
+                "1",
+                "--hide-details",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("## Upcoming Expiries", result.stdout)
+        self.assertIn("Showing first 1 of 2 credits by expiry.", result.stdout)
+        self.assertNotIn("## Credits Table", result.stdout)
+        self.assertNotIn("## Details", result.stdout)
 
 
 if __name__ == "__main__":
