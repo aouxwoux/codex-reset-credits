@@ -4,8 +4,7 @@ Unofficial Codex skill and CLI helper for seeing when banked Codex usage resets 
 (This does not increase, reset, bypass, or extend Codex usage limits.
 It only displays expiry information for reset credits already associated with your account, or estimates expiry from public reset announcements when exact account data is unavailable.)
 
-Codex reset credits can be easy to miss and harder to time. This project gives you a drop-in Codex skill plus safe local scripts that show exact account-backed expiry times when available, and fall back to public Tibo tweets reset-event inference when exact account data is unavailable.
-
+Compares against @tibo's tweets and local auth.json for checking rate limits (safe).
 Example output:
 
 ```text
