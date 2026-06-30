@@ -2,11 +2,7 @@
 
 Unofficial Codex skill and CLI helper for seeing when banked Codex usage resets expire.
 
-Codex reset credits can be easy to miss and harder to time. This project gives you a drop-in Codex skill plus safe local scripts that show exact account-backed expiry times when available, and fall back to public Tibo/OpenAI reset-event inference when exact account data is unavailable.
-
-## Why people care
-
-Tibo and the Codex team sometimes grant reset credits with a 30-day expiry. The practical problem is simple: if you have multiple resets, the UI may show the count without clearly showing each expiration. This tool turns that into a clean ledger.
+Codex reset credits can be easy to miss and harder to time. This project gives you a drop-in Codex skill plus safe local scripts that show exact account-backed expiry times when available, and fall back to public Tibo tweets reset-event inference when exact account data is unavailable.
 
 Example output:
 
@@ -78,7 +74,6 @@ python track-codex-resets/scripts/reset_expiry.py --timezone Asia/Kolkata https:
 - Computes expiry tables from `expires_at`, `grant_at + 30 days`, X/Twitter status IDs, or a known public reset-event catalog.
 - Displays local and UTC expiry times.
 - Emits terminal, Markdown, JSON, or sanitized ledger output.
-- Keeps provenance visible so exact account data never looks like public-event estimation.
 
 ## Privacy model
 
