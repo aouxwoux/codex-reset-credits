@@ -103,6 +103,7 @@ python track-codex-resets/scripts/reset_expiry.py --timezone Asia/Kolkata https:
 - Prints only sanitized fields: count, status, title, `granted_at`, `expires_at`, and safe metadata.
 - Computes expiry tables from `expires_at`, `grant_at + 30 days`, X/Twitter status IDs, or a known public reset-event catalog.
 - Displays local and UTC expiry times.
+- Recommends when to use the next reset so the oldest banked credit is spent before expiry with a configurable safety buffer.
 - Emits terminal, Markdown, JSON, or sanitized ledger output.
 - Keeps provenance visible so exact account data never looks like public-event estimation.
 - Ships as a skill-only artifact; no plugin, GUI, or hosted service is required.
@@ -140,6 +141,8 @@ Markdown controls:
 --view full         summary + expiry list + full provenance table
 --limit N           show only the first N credits by expiry
 --hide-details      omit per-credit provenance details and notes
+--efficiency-buffer-hours N
+                   recommend resetting N hours before the next expiry (default: 6)
 ```
 
 ## Public-event inference

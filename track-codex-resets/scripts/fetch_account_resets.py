@@ -74,12 +74,20 @@ def main() -> int:
     )
     parser.add_argument("--limit", type=int, help="Show only the first N credits by expiry in human-readable output.")
     parser.add_argument("--hide-details", action="store_true", help="Hide per-credit provenance details in Markdown output.")
+    parser.add_argument(
+        "--efficiency-buffer-hours",
+        type=float,
+        default=6.0,
+        help="Safety buffer before the next expiry for reset timing advice.",
+    )
     args = parser.parse_args()
 
     try:
         display_tz = parse_timezone(args.timezone)
         if args.limit is not None and args.limit < 1:
             raise ResetError("--limit must be at least 1.")
+        if args.efficiency_buffer_hours < 0:
+            raise ResetError("--efficiency-buffer-hours must be zero or greater.")
         messages: list[str] = []
         if args.input_response:
             payload = read_json(args.input_response)
@@ -107,7 +115,7 @@ def main() -> int:
     if args.format == "ledger":
         print(render_ledger(resets, available_count, display_tz))
     elif args.format == "json":
-        print(render_json(resets, now, display_tz, expiry_days, messages))
+        print(render_json(resets, now, display_tz, expiry_days, messages, efficiency_buffer_hours=args.efficiency_buffer_hours))
     elif args.format == "markdown":
         print(
             render_markdown(
@@ -119,10 +127,21 @@ def main() -> int:
                 view=args.view,
                 limit=args.limit,
                 show_details=not args.hide_details,
+                efficiency_buffer_hours=args.efficiency_buffer_hours,
             )
         )
     else:
-        print(render_terminal(resets, now, display_tz, expiry_days, messages, limit=args.limit))
+        print(
+            render_terminal(
+                resets,
+                now,
+                display_tz,
+                expiry_days,
+                messages,
+                limit=args.limit,
+                efficiency_buffer_hours=args.efficiency_buffer_hours,
+            )
+        )
     return 0
 
 

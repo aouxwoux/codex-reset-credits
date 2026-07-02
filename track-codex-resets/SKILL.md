@@ -22,7 +22,8 @@ Use this skill to turn Codex reset credits into an exact, scan-friendly expiry l
 4. Use `scripts/reset_expiry.py` for deterministic date math, public-event inference, and table rendering.
 5. State the expiry rule. Default to `grant_at + 30 days` only when an exact expiry is unavailable.
 6. Show each reset with local expiry, UTC expiry, time remaining, status, quantity, source, and uncertainty.
-7. If using `auth.json`, read it only to authenticate the read-only endpoint. Do not print, store, commit, or transmit access tokens, refresh tokens, account ids, raw headers, or full endpoint payloads.
+7. Include the efficiency recommendation so the user knows when to use the oldest banked reset before it expires.
+8. If using `auth.json`, read it only to authenticate the read-only endpoint. Do not print, store, commit, or transmit access tokens, refresh tokens, account ids, raw headers, or full endpoint payloads.
 
 ## Quick Start
 
@@ -70,6 +71,7 @@ Use `--view compact`, `--view table`, or `--view full` with Markdown output to c
 - Always include local time and UTC time for the next expiry.
 - In Markdown output, include an `Upcoming Expiries` list so every shown credit's expiry date is visible without horizontal scrolling.
 - Sort by expiry time so the riskiest reset is first.
+- Include an efficiency recommendation based on the earliest active expiry and the configured safety buffer.
 - Use status buckets: `expired`, `today`, `critical`, `soon`, `watch`, and `ok`.
 - Make uncertainty visible. For example, "estimated from announcement URL" is different from "provided by Codex UI."
 - Treat `confidence: exact` from the account endpoint differently from public-event estimates.

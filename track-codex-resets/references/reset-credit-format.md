@@ -19,6 +19,7 @@ Prefer reset evidence in this order:
 {
   "timezone": "Asia/Kolkata",
   "expiry_days": 30,
+  "efficiency_buffer_hours": 6,
   "resets": [
     {
       "label": "Tibo reset",
@@ -40,6 +41,7 @@ Fields:
 
 - `timezone`: Default display timezone for the ledger. CLI `--timezone` overrides it.
 - `expiry_days`: Default expiry window. CLI `--expiry-days` overrides it.
+- `efficiency_buffer_hours`: Safety buffer used for reset timing advice. CLI `--efficiency-buffer-hours` overrides it.
 - `label`: Human-readable reset name.
 - `source`, `url`, or `status_url`: Evidence link or collector source.
 - `grant_at`: Exact grant timestamp. Naive values are interpreted in the display timezone.
@@ -115,4 +117,6 @@ Do not round expiry instants to local calendar days unless Codex documents that 
 
 Calendar export should be built from the JSON renderer instead of reparsing terminal output. Use `expires_at` as the event end/alert anchor, add reminders at configurable windows such as 7 days and 24 hours, and include the reset source and basis in the event description.
 
-GUI extensions should consume the JSON renderer, sort by `expires_at`, surface the next expiry first, and preserve the `basis` field so users can distinguish exact app data from announcement-based estimates.
+The JSON renderer includes an `efficiency_recommendation` object with `recommended_reset_at`, `expiry_anchor_at`, `buffer_seconds`, `action`, and the selected credit label. Use this object when building reminder or scheduling tools.
+
+GUI extensions should consume the JSON renderer, sort by `expires_at`, surface the next expiry first, show the efficiency recommendation, and preserve the `basis` field so users can distinguish exact app data from announcement-based estimates.
