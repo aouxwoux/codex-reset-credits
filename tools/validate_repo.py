@@ -36,6 +36,7 @@ def check_required_files() -> None:
         ROOT / "LAUNCH.md",
         SKILL / "SKILL.md",
         SKILL / "agents" / "openai.yaml",
+        SKILL / "scripts" / "codex_resets.py",
         SKILL / "scripts" / "fetch_account_resets.py",
         SKILL / "scripts" / "reset_expiry.py",
         SKILL / "assets" / "known-reset-events.json",
@@ -44,6 +45,7 @@ def check_required_files() -> None:
         ROOT / "examples" / "resets.example.json",
         ROOT / "tools" / "install_skill.py",
         ROOT / "tools" / "package_skill.py",
+        ROOT / "tests" / "test_codex_resets_cli.py",
         ROOT / "tests" / "test_reset_expiry.py",
         ROOT / "tests" / "test_fetch_account_resets.py",
         ROOT / "tests" / "test_installer.py",
@@ -93,6 +95,7 @@ def check_python_compile() -> None:
             sys.executable,
             "-m",
             "py_compile",
+            str(SKILL / "scripts" / "codex_resets.py"),
             str(SKILL / "scripts" / "reset_expiry.py"),
             str(SKILL / "scripts" / "fetch_account_resets.py"),
             str(ROOT / "tools" / "install_skill.py"),
@@ -104,6 +107,39 @@ def check_python_compile() -> None:
 
 
 def check_sample_commands() -> None:
+    run(
+        [
+            sys.executable,
+            str(SKILL / "scripts" / "codex_resets.py"),
+            "help",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SKILL / "scripts" / "codex_resets.py"),
+            "account",
+            "--input-response",
+            str(ROOT / "examples" / "account-resets.sample.json"),
+            "--timezone",
+            "UTC",
+        ]
+    )
+    run(
+        [
+            sys.executable,
+            str(SKILL / "scripts" / "codex_resets.py"),
+            "estimate",
+            "--bank-count",
+            "1",
+            "--timezone",
+            "UTC",
+            "--format",
+            "json",
+            "--now",
+            "2026-06-28T00:00:00Z",
+        ]
+    )
     run(
         [
             sys.executable,

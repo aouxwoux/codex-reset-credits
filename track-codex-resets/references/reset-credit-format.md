@@ -61,7 +61,7 @@ Fields:
 Use this first when the user wants their own reset expiry details:
 
 ```bash
-python scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+python scripts/codex_resets.py account --timezone Asia/Kolkata
 ```
 
 The script reads `~/.codex/auth.json` in-process, sends only a GET request to `https://chatgpt.com/backend-api/wham/rate-limit-reset-credits`, and prints only sanitized fields:
@@ -79,8 +79,8 @@ Never print or persist raw endpoint payloads, credit IDs, profile IDs, account I
 To save a sanitized local ledger:
 
 ```bash
-python scripts/fetch_account_resets.py --timezone Asia/Kolkata --format ledger > account-resets.local.json
-python scripts/reset_expiry.py --input account-resets.local.json --format markdown
+python scripts/codex_resets.py account --timezone Asia/Kolkata --format ledger > account-resets.local.json
+python scripts/codex_resets.py render --input account-resets.local.json --format markdown
 ```
 
 ## Known Event Catalog
@@ -96,7 +96,7 @@ python scripts/reset_expiry.py --input account-resets.local.json --format markdo
 Use this command when the user says they can see a reset-bank count but not individual expiries:
 
 ```bash
-python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata
+python scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata
 ```
 
 This is an inference, not account truth. If Codex later exposes per-credit expiry, replace inferred events with exact `expires_at` values.
