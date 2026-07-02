@@ -48,6 +48,16 @@ class ResetCredit:
         return f"{self.label} ({self.account_status})"
 
 
+@dataclass(frozen=True)
+class EfficiencyRecommendation:
+    reset: ResetCredit
+    recommended_at: datetime
+    expiry_anchor_at: datetime
+    buffer: timedelta
+    action: str
+    reason: str
+
+
 class ResetError(ValueError):
     pass
 
@@ -82,6 +92,11 @@ def main() -> int:
     )
     parser.add_argument("--limit", type=int, help="Show only the first N credits by expiry in human-readable output.")
     parser.add_argument("--hide-details", action="store_true", help="Hide per-credit provenance details in Markdown output.")
+    parser.add_argument(
+        "--efficiency-buffer-hours",
+        type=float,
+        help="Safety buffer before the next expiry for reset timing advice (default: input file or 6).",
+    )
     args = parser.parse_args()
 
     try:
@@ -92,6 +107,13 @@ def main() -> int:
         if args.limit is not None and args.limit < 1:
             raise ResetError("--limit must be at least 1.")
         expiry_days = float(args.expiry_days if args.expiry_days is not None else config.get("expiry_days", 30.0))
+        efficiency_buffer_hours = float(
+            args.efficiency_buffer_hours
+            if args.efficiency_buffer_hours is not None
+            else config.get("efficiency_buffer_hours", 6.0)
+        )
+        if efficiency_buffer_hours < 0:
+            raise ResetError("--efficiency-buffer-hours must be zero or greater.")
         resets = load_resets(config, args.resets, expiry_days, display_tz)
         messages: list[str] = []
         if args.from_known_events or args.bank_count is not None:
@@ -123,7 +145,7 @@ def main() -> int:
 
     resets = sorted(resets, key=lambda reset: reset.expires_at)
     if args.format == "json":
-        print(render_json(resets, now, display_tz, expiry_days, messages))
+        print(render_json(resets, now, display_tz, expiry_days, messages, efficiency_buffer_hours=efficiency_buffer_hours))
     elif args.format == "markdown":
         print(
             render_markdown(
@@ -135,10 +157,21 @@ def main() -> int:
                 view=args.view,
                 limit=args.limit,
                 show_details=not args.hide_details,
+                efficiency_buffer_hours=efficiency_buffer_hours,
             )
         )
     else:
-        print(render_terminal(resets, now, display_tz, expiry_days, messages, limit=args.limit))
+        print(
+            render_terminal(
+                resets,
+                now,
+                display_tz,
+                expiry_days,
+                messages,
+                limit=args.limit,
+                efficiency_buffer_hours=efficiency_buffer_hours,
+            )
+        )
     return 0
 
 
@@ -350,9 +383,11 @@ def render_terminal(
     expiry_days: float,
     messages: list[str] | None = None,
     limit: int | None = None,
+    efficiency_buffer_hours: float = 6.0,
 ) -> str:
     next_reset = next((reset for reset in resets if reset.expires_at >= now), resets[0])
     visible_resets = limited_resets(resets, limit)
+    recommendation = efficiency_recommendation(resets, now, efficiency_buffer_hours)
     lines = [
         "Codex reset credits",
         f"Timezone: {timezone_label(display_tz)}",
@@ -366,6 +401,8 @@ def render_terminal(
         f"  Left:    {format_duration(next_reset.expires_at - now)}",
         "",
     ]
+    lines.extend(format_terminal_recommendation(recommendation, display_tz))
+    lines.append("")
     if messages:
         lines.extend(["Run notes", *[f"  {message}" for message in messages], ""])
 
@@ -410,11 +447,13 @@ def render_markdown(
     view: str = "table",
     limit: int | None = None,
     show_details: bool = True,
+    efficiency_buffer_hours: float = 6.0,
 ) -> str:
     if view not in MARKDOWN_VIEWS:
         raise ResetError(f"Unknown Markdown view '{view}'. Choose: {', '.join(MARKDOWN_VIEWS)}.")
     next_reset = next((reset for reset in resets if reset.expires_at >= now), resets[0])
     visible_resets = limited_resets(resets, limit)
+    recommendation = efficiency_recommendation(resets, now, efficiency_buffer_hours)
     available_message, run_notes = split_available_message(messages or [])
     lines = [
         "# Codex Reset Credits",
@@ -430,6 +469,10 @@ def render_markdown(
         f"- Time left: **{format_duration_window(next_reset, now)}**",
         f"- Confidence: `{escape_md(humanize(next_reset.confidence))}`",
         f"- Source: `{escape_md(short_source(next_reset.source) or 'manual input')}`",
+        "",
+        "## Efficiency Recommendation",
+        "",
+        *format_markdown_recommendation(recommendation, display_tz),
         "",
         "## Upcoming Expiries",
         "",
@@ -563,12 +606,15 @@ def render_json(
     display_tz: tzinfo,
     expiry_days: float,
     messages: list[str] | None = None,
+    efficiency_buffer_hours: float = 6.0,
 ) -> str:
+    recommendation = efficiency_recommendation(resets, now, efficiency_buffer_hours)
     payload = {
         "timezone": timezone_label(display_tz),
         "now": now.isoformat(),
         "default_expiry_days": expiry_days,
         "messages": messages or [],
+        "efficiency_recommendation": render_recommendation_json(recommendation, display_tz),
         "resets": [
             {
                 "label": reset.label,
@@ -595,6 +641,103 @@ def render_json(
         ],
     }
     return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def efficiency_recommendation(
+    resets: list[ResetCredit],
+    now: datetime,
+    buffer_hours: float = 6.0,
+) -> EfficiencyRecommendation | None:
+    active_resets = [reset for reset in resets if window_latest(reset) >= now]
+    if not active_resets:
+        return None
+
+    next_reset = min(active_resets, key=lambda reset: reset.expires_at)
+    buffer = timedelta(hours=buffer_hours)
+    expiry_anchor_at = next_reset.expires_at
+    buffered_at = expiry_anchor_at - buffer
+    if expiry_anchor_at <= now:
+        return EfficiencyRecommendation(
+            reset=next_reset,
+            recommended_at=now,
+            expiry_anchor_at=expiry_anchor_at,
+            buffer=buffer,
+            action="reset_now",
+            reason="The next credit is already inside its uncertainty window.",
+        )
+    if buffered_at <= now:
+        return EfficiencyRecommendation(
+            reset=next_reset,
+            recommended_at=now,
+            expiry_anchor_at=expiry_anchor_at,
+            buffer=buffer,
+            action="reset_now",
+            reason="The next credit expires inside the configured efficiency buffer.",
+        )
+    return EfficiencyRecommendation(
+        reset=next_reset,
+        recommended_at=buffered_at,
+        expiry_anchor_at=expiry_anchor_at,
+        buffer=buffer,
+        action="schedule",
+        reason="Use the oldest banked reset first while keeping a safety buffer before expiry.",
+    )
+
+
+def format_terminal_recommendation(recommendation: EfficiencyRecommendation | None, display_tz: tzinfo) -> list[str]:
+    lines = ["Efficiency recommendation"]
+    if recommendation is None:
+        lines.append("  No active reset credits found; nothing to schedule.")
+        return lines
+
+    action = "Reset now" if recommendation.action == "reset_now" else f"Reset by {format_dt(recommendation.recommended_at, display_tz)}"
+    lines.extend(
+        [
+            f"  {action}",
+            f"  Credit:  {recommendation.reset.label_with_status()}",
+            f"  Expiry:  {format_dt(recommendation.expiry_anchor_at, display_tz)}",
+            f"  Buffer:  {format_duration(recommendation.buffer)}",
+            f"  Why:     {recommendation.reason}",
+        ]
+    )
+    return lines
+
+
+def format_markdown_recommendation(recommendation: EfficiencyRecommendation | None, display_tz: tzinfo) -> list[str]:
+    if recommendation is None:
+        return ["No active reset credits found; nothing to schedule."]
+
+    if recommendation.action == "reset_now":
+        lead = "**Use a reset now.**"
+    else:
+        lead = f"**Use a reset by {escape_md(format_dt_short(recommendation.recommended_at, display_tz))}.**"
+    return [
+        lead,
+        f"- Credit: **{escape_md(recommendation.reset.label_with_status())}**",
+        f"- Expiry anchor: `{escape_md(format_dt_short(recommendation.expiry_anchor_at, display_tz))}`",
+        f"- Buffer: `{format_duration(recommendation.buffer)}` before expiry",
+        f"- Why: {escape_md(recommendation.reason)}",
+    ]
+
+
+def render_recommendation_json(
+    recommendation: EfficiencyRecommendation | None,
+    display_tz: tzinfo,
+) -> dict[str, Any] | None:
+    if recommendation is None:
+        return None
+    return {
+        "action": recommendation.action,
+        "credit_label": recommendation.reset.label,
+        "credit_status": recommendation.reset.account_status or None,
+        "quantity": recommendation.reset.quantity,
+        "recommended_reset_at": recommendation.recommended_at.isoformat(),
+        "recommended_reset_at_local": recommendation.recommended_at.astimezone(display_tz).isoformat(),
+        "expiry_anchor_at": recommendation.expiry_anchor_at.isoformat(),
+        "expiry_anchor_at_local": recommendation.expiry_anchor_at.astimezone(display_tz).isoformat(),
+        "buffer_seconds": int(recommendation.buffer.total_seconds()),
+        "reason": recommendation.reason,
+    }
 
 
 def render_table(headers: list[str], rows: list[list[str]]) -> str:

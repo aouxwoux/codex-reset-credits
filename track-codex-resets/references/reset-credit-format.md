@@ -19,6 +19,7 @@ Prefer reset evidence in this order:
 {
   "timezone": "Asia/Kolkata",
   "expiry_days": 30,
+  "efficiency_buffer_hours": 6,
   "resets": [
     {
       "label": "Tibo reset",
@@ -40,6 +41,7 @@ Fields:
 
 - `timezone`: Default display timezone for the ledger. CLI `--timezone` overrides it.
 - `expiry_days`: Default expiry window. CLI `--expiry-days` overrides it.
+- `efficiency_buffer_hours`: Safety buffer used for reset timing advice. CLI `--efficiency-buffer-hours` overrides it.
 - `label`: Human-readable reset name.
 - `source`, `url`, or `status_url`: Evidence link or collector source.
 - `grant_at`: Exact grant timestamp. Naive values are interpreted in the display timezone.
@@ -59,7 +61,7 @@ Fields:
 Use this first when the user wants their own reset expiry details:
 
 ```bash
-python scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+python scripts/codex_resets.py account --timezone Asia/Kolkata
 ```
 
 The script reads `~/.codex/auth.json` in-process, sends only a GET request to `https://chatgpt.com/backend-api/wham/rate-limit-reset-credits`, and prints only sanitized fields:
@@ -77,8 +79,8 @@ Never print or persist raw endpoint payloads, credit IDs, profile IDs, account I
 To save a sanitized local ledger:
 
 ```bash
-python scripts/fetch_account_resets.py --timezone Asia/Kolkata --format ledger > account-resets.local.json
-python scripts/reset_expiry.py --input account-resets.local.json --format markdown
+python scripts/codex_resets.py account --timezone Asia/Kolkata --format ledger > account-resets.local.json
+python scripts/codex_resets.py render --input account-resets.local.json --format markdown
 ```
 
 ## Known Event Catalog
@@ -94,7 +96,7 @@ python scripts/reset_expiry.py --input account-resets.local.json --format markdo
 Use this command when the user says they can see a reset-bank count but not individual expiries:
 
 ```bash
-python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata
+python scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata
 ```
 
 This is an inference, not account truth. If Codex later exposes per-credit expiry, replace inferred events with exact `expires_at` values.
@@ -115,4 +117,6 @@ Do not round expiry instants to local calendar days unless Codex documents that 
 
 Calendar export should be built from the JSON renderer instead of reparsing terminal output. Use `expires_at` as the event end/alert anchor, add reminders at configurable windows such as 7 days and 24 hours, and include the reset source and basis in the event description.
 
-GUI extensions should consume the JSON renderer, sort by `expires_at`, surface the next expiry first, and preserve the `basis` field so users can distinguish exact app data from announcement-based estimates.
+The JSON renderer includes an `efficiency_recommendation` object with `recommended_reset_at`, `expiry_anchor_at`, `buffer_seconds`, `action`, and the selected credit label. Use this object when building reminder or scheduling tools.
+
+GUI extensions should consume the JSON renderer, sort by `expires_at`, surface the next expiry first, show the efficiency recommendation, and preserve the `basis` field so users can distinguish exact app data from announcement-based estimates.

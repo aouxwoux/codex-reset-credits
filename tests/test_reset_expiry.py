@@ -72,6 +72,8 @@ class ResetExpiryTests(unittest.TestCase):
 
         self.assertIn("# Codex Reset Credits", output)
         self.assertIn("## Next To Expire", output)
+        self.assertIn("## Efficiency Recommendation", output)
+        self.assertIn("Use a reset by Jul 11, 2026 21:38:11 UTC", output)
         self.assertIn("Full reset (available)", output)
         self.assertIn("Available reset credits: 1", output)
         self.assertIn("| # | Status | Qty | Expires Local | Expires UTC | Time Left | Confidence |", output)
@@ -96,6 +98,33 @@ class ResetExpiryTests(unittest.TestCase):
 
         self.assertEqual(payload["resets"][0]["account_status"], "available")
         self.assertEqual(payload["resets"][0]["confidence"], "exact")
+        self.assertEqual(payload["efficiency_recommendation"]["action"], "schedule")
+        self.assertEqual(
+            payload["efficiency_recommendation"]["recommended_reset_at"],
+            "2026-07-11T21:38:11+00:00",
+        )
+
+    def test_efficiency_recommendation_respects_buffer(self) -> None:
+        reset = reset_expiry.reset_from_mapping(
+            {
+                "label": "Next reset",
+                "grant_at": "2026-06-12T03:38:11Z",
+                "expires_at": "2026-07-12T03:38:11Z",
+                "credit_status": "available",
+            },
+            30,
+            timezone.utc,
+        )
+
+        recommendation = reset_expiry.efficiency_recommendation(
+            [reset],
+            datetime(2026, 7, 11, 23, tzinfo=timezone.utc),
+            buffer_hours=6,
+        )
+
+        self.assertIsNotNone(recommendation)
+        self.assertEqual(recommendation.action, "reset_now")
+        self.assertEqual(recommendation.recommended_at.isoformat(), "2026-07-11T23:00:00+00:00")
 
     def test_markdown_views_and_limit_give_user_control(self) -> None:
         resets = [

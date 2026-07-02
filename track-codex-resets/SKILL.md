@@ -18,47 +18,55 @@ Use this skill to turn Codex reset credits into an exact, scan-friendly expiry l
    - X/Twitter reset announcement URL; derive the post timestamp from the status ID when possible.
    - Relative phrases such as "yesterday" only after resolving them to a concrete date, time, and timezone.
 2. Resolve the display timezone. Use the user's requested timezone, the local timezone, or ask for one if the output will be published or shared.
-3. Use `scripts/fetch_account_resets.py` first when the user wants their own account's exact reset credits and local Codex auth is available.
-4. Use `scripts/reset_expiry.py` for deterministic date math, public-event inference, and table rendering.
+3. Use `scripts/codex_resets.py account` first when the user wants their own account's exact reset credits and local Codex auth is available.
+4. Use `scripts/codex_resets.py estimate` or `scripts/codex_resets.py render` for deterministic date math, public-event inference, and table rendering.
 5. State the expiry rule. Default to `grant_at + 30 days` only when an exact expiry is unavailable.
 6. Show each reset with local expiry, UTC expiry, time remaining, status, quantity, source, and uncertainty.
-7. If using `auth.json`, read it only to authenticate the read-only endpoint. Do not print, store, commit, or transmit access tokens, refresh tokens, account ids, raw headers, or full endpoint payloads.
+7. Include the efficiency recommendation so the user knows when to use the oldest banked reset before it expires.
+8. If using `auth.json`, read it only to authenticate the read-only endpoint. Do not print, store, commit, or transmit access tokens, refresh tokens, account ids, raw headers, or full endpoint payloads.
 
 ## Quick Start
 
 From the skill directory:
 
 ```bash
-python scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+python scripts/codex_resets.py account --timezone Asia/Kolkata
+```
+
+Show the built-in command guide:
+
+```bash
+python scripts/codex_resets.py help
 ```
 
 If account fetch is unavailable, estimate from a public announcement:
 
 ```bash
-python scripts/reset_expiry.py --timezone Asia/Kolkata https://x.com/thsottiaux/status/2070653282440405046
+python scripts/codex_resets.py estimate --timezone Asia/Kolkata https://x.com/thsottiaux/status/2070653282440405046
 ```
 
 Render a persistent ledger:
 
 ```bash
-python scripts/reset_expiry.py --input ../examples/resets.example.json --format markdown
+python scripts/codex_resets.py render --input ../examples/resets.example.json --format markdown
 ```
 
 Infer the likely expiry windows for a visible reset bank count:
 
 ```bash
-python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata
+python scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata
 ```
 
 Use `--format json` when another tool, calendar exporter, website, or app extension will consume the result.
-Use `--format ledger` with `fetch_account_resets.py` when saving sanitized account rows for later rendering.
+Use `codex_resets.py account --format ledger` when saving sanitized account rows for later rendering.
 Use `--view compact`, `--view table`, or `--view full` with Markdown output to control how much expiry detail is shown. Use `--limit N` to show only the next N expiring credits and `--hide-details` to suppress provenance notes.
+The lower-level `scripts/fetch_account_resets.py` and `scripts/reset_expiry.py` entry points remain available for existing automation.
 
 ## Input Rules
 
-- Accept one-off reset inputs as positional values. Values may be ISO timestamps, X/Twitter status URLs, or `label=value` pairs.
+- Accept one-off reset inputs as positional values through `scripts/codex_resets.py estimate` or `scripts/codex_resets.py render`. Values may be ISO timestamps, X/Twitter status URLs, or `label=value` pairs.
 - Accept durable ledgers with `--input path/to/resets.json`.
-- Prefer `fetch_account_resets.py` for exact personal account data; it emits only sanitized fields.
+- Prefer `codex_resets.py account` for exact personal account data; it emits only sanitized fields.
 - If a reset has `expires_at`, treat that as authoritative.
 - If a reset has `grant_at` but no `expires_at`, compute `expires_at = grant_at + expiry_days`.
 - If a reset has only an X/Twitter status URL, derive `grant_at` from the status ID and mark it as an announcement-based estimate.
@@ -70,6 +78,7 @@ Use `--view compact`, `--view table`, or `--view full` with Markdown output to c
 - Always include local time and UTC time for the next expiry.
 - In Markdown output, include an `Upcoming Expiries` list so every shown credit's expiry date is visible without horizontal scrolling.
 - Sort by expiry time so the riskiest reset is first.
+- Include an efficiency recommendation based on the earliest active expiry and the configured safety buffer.
 - Use status buckets: `expired`, `today`, `critical`, `soon`, `watch`, and `ok`.
 - Make uncertainty visible. For example, "estimated from announcement URL" is different from "provided by Codex UI."
 - Treat `confidence: exact` from the account endpoint differently from public-event estimates.
@@ -85,9 +94,10 @@ Use `--view compact`, `--view table`, or `--view full` with Markdown output to c
 After edits, run:
 
 ```bash
-python scripts/reset_expiry.py --timezone UTC https://x.com/thsottiaux/status/2070653282440405046
-python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata --format markdown
-python scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata --format markdown --view compact --limit 2
-python scripts/fetch_account_resets.py --input-response ../examples/account-resets.sample.json --timezone UTC --format markdown
+python scripts/codex_resets.py help
+python scripts/codex_resets.py estimate --timezone UTC https://x.com/thsottiaux/status/2070653282440405046
+python scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata --format markdown
+python scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata --format markdown --view compact --limit 2
+python scripts/codex_resets.py account --input-response ../examples/account-resets.sample.json --timezone UTC
 python /path/to/skill-creator/scripts/quick_validate.py .
 ```

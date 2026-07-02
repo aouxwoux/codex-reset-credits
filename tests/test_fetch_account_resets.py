@@ -110,6 +110,7 @@ class FetchAccountResetsTests(unittest.TestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("## Efficiency Recommendation", result.stdout)
         self.assertIn("## Upcoming Expiries", result.stdout)
         self.assertIn("Showing first 1 of 2 credits by expiry.", result.stdout)
         self.assertNotIn("## Credits Table", result.stdout)

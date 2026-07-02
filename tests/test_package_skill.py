@@ -35,6 +35,7 @@ class PackageSkillTests(unittest.TestCase):
                 names = set(archive.namelist())
 
         self.assertIn("track-codex-resets/SKILL.md", names)
+        self.assertIn("track-codex-resets/scripts/codex_resets.py", names)
         self.assertIn("track-codex-resets/scripts/reset_expiry.py", names)
         self.assertTrue(all(name.startswith("track-codex-resets/") for name in names))
         self.assertNotIn("README.md", names)
