@@ -36,6 +36,24 @@ class CodexResetsCliTests(unittest.TestCase):
         self.assertIn("## Upcoming Expiries", result.stdout)
         self.assertNotIn("## Credits Table", result.stdout)
 
+    def test_account_preserves_explicit_markdown_view(self) -> None:
+        result = run_cli(
+            "account",
+            "--input-response",
+            str(ROOT / "examples" / "account-resets.sample.json"),
+            "--timezone",
+            "UTC",
+            "--view",
+            "full",
+            "--limit",
+            "1",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("## Full Ledger", result.stdout)
+        self.assertIn("## Details", result.stdout)
+        self.assertNotIn("## Credits Table", result.stdout)
+
     def test_estimate_command_forwards_to_json_renderer(self) -> None:
         result = run_cli(
             "estimate",

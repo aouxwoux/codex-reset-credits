@@ -127,9 +127,16 @@ def canonical_command(value: str) -> str | None:
 
 
 def account_defaults(args: list[str]) -> list[str]:
-    if any(option_present(args, option) for option in ("--help", "-h", "--format")):
+    if any(option_present(args, option) for option in ("--help", "-h")):
         return args
-    return [*args, "--format", "markdown", "--view", "compact", "--hide-details"]
+    defaults = list(args)
+    if not option_present(args, "--format"):
+        defaults.extend(["--format", "markdown"])
+    if not option_present(args, "--view"):
+        defaults.extend(["--view", "compact"])
+        if not option_present(args, "--hide-details"):
+            defaults.append("--hide-details")
+    return defaults
 
 
 def option_present(args: Sequence[str], option: str) -> bool:
