@@ -18,6 +18,7 @@ REQUIRED_FILES = [
     "agents/openai.yaml",
     "assets/known-reset-events.json",
     "references/reset-credit-format.md",
+    "scripts/codex_resets.py",
     "scripts/fetch_account_resets.py",
     "scripts/reset_expiry.py",
 ]

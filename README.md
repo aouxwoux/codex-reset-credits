@@ -10,9 +10,10 @@ Example output:
 ```text
 Available reset credits: 2
 
-Granted                  Expires                  Status
-2026-06-12 01:33 UTC     2026-07-12 01:33 UTC     available
-2026-06-27 00:39 UTC     2026-07-27 00:39 UTC     available
+Efficiency recommendation
+  Reset by 2026-07-12 03:08:11 IST
+  Credit:  Full reset (Weekly + 5 hr)
+  Buffer:  6h 0m
 ```
 
 ## Install the skill
@@ -60,41 +61,62 @@ Upload that zip as the release artifact. Users can extract `track-codex-resets/`
 
 ## Run directly
 
+Use the friendly front-door command for day-to-day usage:
+
+```bash
+python track-codex-resets/scripts/codex_resets.py help
+```
+
+Commands:
+
+```text
+account    fetch exact account-backed reset credits from local Codex auth
+estimate   infer from public reset events, a visible bank count, or URLs
+render     display a saved sanitized ledger or manual reset entries
+```
+
 Exact account-backed expiry rows:
 
 ```bash
-python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+python track-codex-resets/scripts/codex_resets.py account --timezone Asia/Kolkata
 ```
 
 Compact expiry-only view:
 
 ```bash
-python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown --view compact --hide-details
+python track-codex-resets/scripts/codex_resets.py account --timezone Asia/Kolkata --limit 2
 ```
 
 Full provenance view, limited to the next expiring credit:
 
 ```bash
-python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown --view full --limit 1
+python track-codex-resets/scripts/codex_resets.py account --timezone Asia/Kolkata --format markdown --view full --limit 1
 ```
 
 Sanitized local ledger output:
 
 ```bash
-python track-codex-resets/scripts/fetch_account_resets.py --format ledger > account-resets.local.json
-python track-codex-resets/scripts/reset_expiry.py --input account-resets.local.json --format markdown
+python track-codex-resets/scripts/codex_resets.py account --format ledger > account-resets.local.json
+python track-codex-resets/scripts/codex_resets.py render --input account-resets.local.json --format markdown
 ```
 
 Public-event inference when exact account fetch is unavailable:
 
 ```bash
-python track-codex-resets/scripts/reset_expiry.py --bank-count 3 --timezone Asia/Kolkata
+python track-codex-resets/scripts/codex_resets.py estimate --bank-count 3 --timezone Asia/Kolkata
 ```
 
 One-off Tibo/X status URL:
 
 ```bash
-python track-codex-resets/scripts/reset_expiry.py --timezone Asia/Kolkata https://x.com/thsottiaux/status/2070653282440405046
+python track-codex-resets/scripts/codex_resets.py estimate --timezone Asia/Kolkata https://x.com/thsottiaux/status/2070653282440405046
+```
+
+The lower-level scripts still work for existing automation:
+
+```bash
+python track-codex-resets/scripts/fetch_account_resets.py --timezone Asia/Kolkata --format markdown
+python track-codex-resets/scripts/reset_expiry.py --input account-resets.local.json --format markdown
 ```
 
 ## What it does
@@ -103,6 +125,7 @@ python track-codex-resets/scripts/reset_expiry.py --timezone Asia/Kolkata https:
 - Prints only sanitized fields: count, status, title, `granted_at`, `expires_at`, and safe metadata.
 - Computes expiry tables from `expires_at`, `grant_at + 30 days`, X/Twitter status IDs, or a known public reset-event catalog.
 - Displays local and UTC expiry times.
+- Recommends when to use the next reset so the oldest banked credit is spent before expiry with a configurable safety buffer.
 - Emits terminal, Markdown, JSON, or sanitized ledger output.
 - Keeps provenance visible so exact account data never looks like public-event estimation.
 - Ships as a skill-only artifact; no plugin, GUI, or hosted service is required.
@@ -125,6 +148,15 @@ Generated local snapshots such as `account-resets.local.json` are ignored by git
 
 ## Output modes
 
+Friendly commands:
+
+```text
+codex_resets.py help       quick examples and command guide
+codex_resets.py account    exact account-backed credits
+codex_resets.py estimate   public-event or bank-count inference
+codex_resets.py render     saved ledgers and manual entries
+```
+
 ```text
 --format terminal   compact terminal table
 --format markdown   shareable Markdown table
@@ -140,6 +172,8 @@ Markdown controls:
 --view full         summary + expiry list + full provenance table
 --limit N           show only the first N credits by expiry
 --hide-details      omit per-credit provenance details and notes
+--efficiency-buffer-hours N
+                   recommend resetting N hours before the next expiry (default: 6)
 ```
 
 ## Public-event inference
